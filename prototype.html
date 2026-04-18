@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TabDash — Interactive Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TabDash — Cinematic Glass Prototype
+
+   Dark mode, frosted glass cards, neon-line accents,
+   staggered entrance animations, hover micro-interactions.
+   Cool and futuristic — a cockpit for your browser.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Core palette — deep space with warm highlights */
+  --bg:              #0c0c10;
+  --bg-surface:      rgba(255, 255, 255, 0.03);
+  --bg-glass:        rgba(255, 255, 255, 0.05);
+  --bg-glass-hover:  rgba(255, 255, 255, 0.08);
+  --bg-glass-active: rgba(255, 255, 255, 0.12);
+
+  --text:            #e8e6e3;
+  --text-secondary:  rgba(232, 230, 227, 0.55);
+  --text-muted:      rgba(232, 230, 227, 0.3);
+  --text-accent:     #c8a96e;
+
+  /* Accent — warm champagne gold */
+  --accent:          #c8a96e;
+  --accent-glow:     rgba(200, 169, 110, 0.2);
+  --accent-dim:      rgba(200, 169, 110, 0.08);
+
+  /* Accent 2 — cool teal */
+  --teal:            #5cb8b2;
+  --teal-glow:       rgba(92, 184, 178, 0.15);
+  --teal-dim:        rgba(92, 184, 178, 0.06);
+
+  /* Borders */
+  --border:          rgba(255, 255, 255, 0.06);
+  --border-hover:    rgba(255, 255, 255, 0.12);
+  --border-accent:   rgba(200, 169, 110, 0.3);
+
+  /* Shadows & glows */
+  --shadow:          0 4px 30px rgba(0, 0, 0, 0.4);
+  --shadow-lg:       0 20px 60px rgba(0, 0, 0, 0.5);
+  --glow-gold:       0 0 30px rgba(200, 169, 110, 0.15);
+  --glow-teal:       0 0 30px rgba(92, 184, 178, 0.1);
+
+  --radius:          16px;
+  --radius-sm:       10px;
+  --ease:            cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce:     cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --font:            'Outfit', -apple-system, sans-serif;
+  --font-mono:       'Space Mono', monospace;
+}
+
+html {
+  font-family: var(--font);
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ── Animated background ── */
+body::before {
+  content: '';
+  position: fixed;
+  top: -30%; left: -10%;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(200, 169, 110, 0.07) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: float-glow 20s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -20%; right: -5%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(92, 184, 178, 0.05) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: float-glow 25s ease-in-out infinite reverse;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes float-glow {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(60px, 40px) scale(1.1); }
+  50% { transform: translate(-30px, 80px) scale(0.95); }
+  75% { transform: translate(40px, -20px) scale(1.05); }
+}
+
+/* Grid noise overlay */
+.noise {
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Container ── */
+.container {
+  position: relative;
+  z-index: 2;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 56px 40px;
+}
+
+/* ── Staggered entrance animations ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  70% { box-shadow: 0 0 0 8px rgba(200, 169, 110, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(200, 169, 110, 0); }
+}
+
+.anim-1 { animation: fade-up 0.8s var(--ease) both; animation-delay: 0.1s; }
+.anim-2 { animation: fade-up 0.8s var(--ease) both; animation-delay: 0.2s; }
+.anim-3 { animation: fade-up 0.8s var(--ease) both; animation-delay: 0.3s; }
+.anim-4 { animation: fade-up 0.8s var(--ease) both; animation-delay: 0.4s; }
+.anim-5 { animation: fade-up 0.8s var(--ease) both; animation-delay: 0.55s; }
+.anim-6 { animation: fade-up 0.8s var(--ease) both; animation-delay: 0.7s; }
+.anim-slide { animation: slide-in-right 0.8s var(--ease) both; animation-delay: 0.35s; }
+
+/* ══════════════════════════════════════
+   HEADER
+   ══════════════════════════════════════ */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 48px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-left h1 {
+  font-size: 2.8rem;
+  font-weight: 200;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.header-left h1 span {
+  color: var(--accent);
+  font-weight: 300;
+}
+
+.header-left .date {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  font-weight: 300;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.clock {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+.clock-colon {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.2; }
+}
+
+/* ══════════════════════════════════════
+   QUICK ACCESS — Pill-shaped links
+   ══════════════════════════════════════ */
+.quick-access {
+  margin-bottom: 40px;
+}
+
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quick-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px 7px 10px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 400;
+  text-decoration: none;
+  transition: all 0.3s var(--ease);
+  cursor: pointer;
+}
+
+.quick-link img {
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  filter: grayscale(0.3);
+}
+
+.quick-link:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--border-hover);
+  color: var(--text);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+/* ══════════════════════════════════════
+   MAIN LAYOUT — Two columns
+   ══════════════════════════════════════ */
+.dashboard {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 40px;
+  align-items: start;
+}
+
+.dashboard.no-sidebar {
+  grid-template-columns: 1fr;
+}
+
+/* ── Section headers ── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.section-head h2 {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.section-head .line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.section-head .count {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  background: var(--bg-glass);
+  border-radius: 100px;
+}
+
+/* ══════════════════════════════════════
+   DOMAIN CARDS — Frosted glass
+   ══════════════════════════════════════ */
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  position: relative;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  transition: all 0.35s var(--ease);
+  cursor: default;
+  overflow: hidden;
+}
+
+/* Shimmer line across top */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 169, 110, 0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.card:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow), var(--glow-gold);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.card-domain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-favicon {
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  background: var(--bg-glass-active);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.card-domain-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.card-tab-count {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: var(--bg-glass);
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.card:hover .card-actions { opacity: 1; }
+
+.card-action-btn {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+
+.card-action-btn:hover {
+  background: var(--bg-glass-active);
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.card-action-btn svg {
+  width: 14px; height: 14px;
+}
+
+/* Tab list inside card */
+.card-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 300;
+  transition: all 0.2s var(--ease);
+  cursor: pointer;
+  position: relative;
+}
+
+.card-tab:hover {
+  background: var(--bg-glass);
+  color: var(--text);
+}
+
+/* Active tab indicator */
+.card-tab.active::before {
+  content: '';
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  flex-shrink: 0;
+}
+
+.card-tab .tab-close {
+  margin-left: auto;
+  opacity: 0;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.card-tab:hover .tab-close { opacity: 1; }
+.card-tab .tab-close:hover {
+  background: rgba(200, 80, 80, 0.2);
+  color: #e07070;
+}
+
+.card-tab .tab-close svg { width: 12px; height: 12px; }
+
+/* ══════════════════════════════════════
+   SAVED FOR LATER — Right column
+   ══════════════════════════════════════ */
+.sidebar {
+  position: sticky;
+  top: 48px;
+}
+
+.saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saved-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.3s var(--ease);
+  cursor: pointer;
+}
+
+.saved-item:hover {
+  background: var(--bg-glass);
+  border-color: var(--border);
+}
+
+/* Custom checkbox */
+.saved-check {
+  width: 18px; height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-hover);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s var(--ease-bounce);
+  cursor: pointer;
+}
+
+.saved-check svg { width: 12px; height: 12px; opacity: 0; color: var(--bg); transition: opacity 0.2s; }
+
+.saved-item.checked .saved-check {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: pulse-ring 0.6s ease-out;
+}
+
+.saved-item.checked .saved-check svg { opacity: 1; }
+
+.saved-item.checked .saved-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.saved-text {
+  font-size: 0.82rem;
+  font-weight: 300;
+  color: var(--text-secondary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.3s;
+}
+
+.saved-item:hover .saved-text { color: var(--text); }
+
+.saved-domain {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════
+   CLEANUP BANNER — Animated border
+   ══════════════════════════════════════ */
+.banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  margin-bottom: 32px;
+  border-radius: var(--radius);
+  background: var(--teal-dim);
+  border: 1px solid rgba(92, 184, 178, 0.15);
+  overflow: hidden;
+}
+
+.banner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 200%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(92, 184, 178, 0.06), transparent);
+  animation: shimmer 4s linear infinite;
+}
+
+.banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.banner-icon {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: var(--teal-glow);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--teal);
+}
+
+.banner-icon svg { width: 18px; height: 18px; }
+
+.banner-text {
+  font-size: 0.82rem;
+  font-weight: 300;
+  color: var(--text-secondary);
+}
+
+.banner-text strong {
+  color: var(--teal);
+  font-weight: 500;
+}
+
+.banner-btn {
+  position: relative;
+  z-index: 1;
+  padding: 7px 16px;
+  border-radius: 100px;
+  border: 1px solid rgba(92, 184, 178, 0.3);
+  background: transparent;
+  color: var(--teal);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.25s var(--ease);
+}
+
+.banner-btn:hover {
+  background: var(--teal-glow);
+  box-shadow: var(--glow-teal);
+}
+
+/* ══════════════════════════════════════
+   FOOTER
+   ══════════════════════════════════════ */
+footer {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.footer-stat .num {
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.footer-stat .label {
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.footer-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+.footer-meta a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.footer-meta a:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ══════════════════════════════════════
+   TOAST
+   ══════════════════════════════════════ */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(30, 30, 35, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-hover);
+  border-radius: 100px;
+  box-shadow: var(--shadow-lg);
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.4s var(--ease);
+  z-index: 1000;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast svg {
+  width: 18px; height: 18px;
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════
+   CARD CLOSE / SAVE ANIMATIONS
+   ══════════════════════════════════════ */
+.card.closing {
+  animation: card-close 0.5s var(--ease) forwards;
+}
+
+@keyframes card-close {
+  0%   { opacity: 1; transform: translateX(0) scale(1); max-height: 300px; }
+  40%  { opacity: 0.5; transform: translateX(30px) scale(0.97); }
+  100% { opacity: 0; transform: translateX(60px) scale(0.93); max-height: 0; padding: 0; margin: 0; border-width: 0; }
+}
+
+.card-tab.closing {
+  animation: tab-close 0.35s var(--ease) forwards;
+}
+
+@keyframes tab-close {
+  0%   { opacity: 1; transform: translateX(0); max-height: 40px; }
+  100% { opacity: 0; transform: translateX(20px); max-height: 0; padding: 0; }
+}
+
+.saved-item.completing {
+  animation: saved-complete 0.6s var(--ease) forwards;
+}
+
+@keyframes saved-complete {
+  0%   { opacity: 1; transform: translateX(0); }
+  50%  { opacity: 0.5; transform: translateX(-10px); }
+  100% { opacity: 0; transform: translateX(-30px); max-height: 0; padding: 0; margin: 0; }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Tooltip interaction note ── */
+.interaction-hint {
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  padding: 8px 14px;
+  background: var(--bg-glass-active);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  z-index: 100;
+  animation: fade-in 1s ease both;
+  animation-delay: 1.5s;
+}
+
+.interaction-hint::before {
+  content: '  ';
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--teal);
+  margin-right: 8px;
+  vertical-align: middle;
+  animation: pulse-ring 2s ease-out infinite;
+}
+</style>
+</head>
+<body>
+
+<!-- Noise overlay -->
+<div class="noise"></div>
+
+<!-- Interaction hint -->
+<div class="interaction-hint">Interactive prototype — hover & click cards</div>
+
+<div class="container">
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <header class="anim-1">
+    <div class="header-left">
+      <h1>Good afternoon, <span>王哲</span></h1>
+      <div class="date">Thursday, April 17, 2026</div>
+    </div>
+    <div class="header-right">
+      <div class="clock"><span id="hours">14</span><span class="clock-colon">:</span><span id="minutes">23</span></div>
+    </div>
+  </header>
+
+  <!-- ═══════════ QUICK ACCESS ═══════════ -->
+  <div class="quick-access anim-2">
+    <div class="section-label">Quick access</div>
+    <div class="quick-links">
+      <a class="quick-link" href="#"><span class="card-favicon">G</span> Gmail</a>
+      <a class="quick-link" href="#"><span class="card-favicon">C</span> Calendar</a>
+      <a class="quick-link" href="#"><span class="card-favicon">F</span> Figma</a>
+      <a class="quick-link" href="#"><span class="card-favicon">N</span> Notion</a>
+      <a class="quick-link" href="#"><span class="card-favicon">S</span> Slack</a>
+      <a class="quick-link" href="#"><span class="card-favicon">G</span> GitHub</a>
+      <a class="quick-link" href="#"><span class="card-favicon">J</span> Jira</a>
+    </div>
+  </div>
+
+  <!-- ═══════════ CLEANUP BANNER ═══════════ -->
+  <div class="banner anim-3" id="banner">
+    <div class="banner-left">
+      <div class="banner-icon">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>
+      </div>
+      <div class="banner-text">You have <strong>3</strong> TabDash tabs open. Keep just this one?</div>
+    </div>
+    <button class="banner-btn" onclick="closeBanner()">Close extras</button>
+  </div>
+
+  <!-- ═══════════ MAIN CONTENT ═══════════ -->
+  <div class="dashboard">
+
+    <!-- LEFT: Open tabs -->
+    <div class="left-col">
+      <div class="section-head anim-3">
+        <h2>Right now</h2>
+        <div class="line"></div>
+        <div class="count">23 tabs</div>
+      </div>
+
+      <div class="cards">
+
+        <!-- Card 1: GitHub -->
+        <div class="card anim-3" id="card-github">
+          <div class="card-header">
+            <div class="card-domain">
+              <div class="card-favicon">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              </div>
+              <span class="card-domain-name">github.com</span>
+              <span class="card-tab-count">5 tabs</span>
+            </div>
+            <div class="card-actions">
+              <button class="card-action-btn" title="Save all for later" onclick="saveCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
+              </button>
+              <button class="card-action-btn" title="Close all" onclick="closeCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="card-tabs">
+            <a class="card-tab active"><span class="card-tab active"></span>390467556/TabDash: Pull Request #42</a>
+            <a class="card-tab">anthropics/claude-code — Issues</a>
+            <a class="card-tab">vercel/next.js: feat(app): add streaming support</a>
+            <a class="card-tab">tailwindlabs/tailwindcss: v4.0 Migration Guide</a>
+            <a class="card-tab">GitHub Copilot docs — Getting Started</a>
+          </div>
+        </div>
+
+        <!-- Card 2: Figma -->
+        <div class="card anim-4" id="card-figma">
+          <div class="card-header">
+            <div class="card-domain">
+              <div class="card-favicon" style="color: #a259ff;">
+                <svg width="12" height="14" viewBox="0 0 38 57" fill="currentColor"><path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z"/><path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z"/><path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19H19z"/><path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z"/><path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z"/></svg>
+              </div>
+              <span class="card-domain-name">figma.com</span>
+              <span class="card-tab-count">3 tabs</span>
+            </div>
+            <div class="card-actions">
+              <button class="card-action-btn" title="Save all for later" onclick="saveCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
+              </button>
+              <button class="card-action-btn" title="Close all" onclick="closeCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="card-tabs">
+            <a class="card-tab active"><span class="card-tab active"></span>TabDash — Dashboard Redesign</a>
+            <a class="card-tab">Design System — Components</a>
+            <a class="card-tab">Figma Community — Dark UI Kits</a>
+          </div>
+        </div>
+
+        <!-- Card 3: Google Docs -->
+        <div class="card anim-4" id="card-docs">
+          <div class="card-header">
+            <div class="card-domain">
+              <div class="card-favicon" style="color: #4285f4;">
+                <svg width="12" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8zm0-8h3v2H8z"/></svg>
+              </div>
+              <span class="card-domain-name">docs.google.com</span>
+              <span class="card-tab-count">4 tabs</span>
+            </div>
+            <div class="card-actions">
+              <button class="card-action-btn" title="Save all for later" onclick="saveCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
+              </button>
+              <button class="card-action-btn" title="Close all" onclick="closeCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="card-tabs">
+            <a class="card-tab">Q2 Product Roadmap — Draft</a>
+            <a class="card-tab active"><span class="card-tab active"></span>HiCar Integration Spec v3.1</a>
+            <a class="card-tab">Meeting Notes — Apr 16</a>
+            <a class="card-tab">Performance Review 2026</a>
+          </div>
+        </div>
+
+        <!-- Card 4: Stack Overflow -->
+        <div class="card anim-5" id="card-stackoverflow">
+          <div class="card-header">
+            <div class="card-domain">
+              <div class="card-favicon" style="color: #f48024;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15 21H3v-8h2v6h10v-6h2v8zm-5.36-8.91l.91-.45 4.09 8.17-.91.46-4.09-8.18zm1.48-2.4l.77-.63 5.56 6.88-.77.63-5.56-6.88zm2.68-2.3l.54-.76 7.1 5.07-.54.77-7.1-5.08zM18.55 1l.37-.87L25 4.22l-.37.87-6.08-4.09zM5 15h10v2H5v-2z"/></svg>
+              </div>
+              <span class="card-domain-name">stackoverflow.com</span>
+              <span class="card-tab-count">3 tabs</span>
+            </div>
+            <div class="card-actions">
+              <button class="card-action-btn" title="Save all for later" onclick="saveCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
+              </button>
+              <button class="card-action-btn" title="Close all" onclick="closeCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="card-tabs">
+            <a class="card-tab">Chrome extension MV3 — service worker lifecycle</a>
+            <a class="card-tab">CSS backdrop-filter not working in Chrome</a>
+            <a class="card-tab">TypeScript generic inference with conditional types</a>
+          </div>
+        </div>
+
+        <!-- Card 5: YouTube -->
+        <div class="card anim-5" id="card-youtube">
+          <div class="card-header">
+            <div class="card-domain">
+              <div class="card-favicon" style="color: #ff0000;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.4-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+              </div>
+              <span class="card-domain-name">youtube.com</span>
+              <span class="card-tab-count">2 tabs</span>
+            </div>
+            <div class="card-actions">
+              <button class="card-action-btn" title="Save all for later" onclick="saveCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
+              </button>
+              <button class="card-action-btn" title="Close all" onclick="closeCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="card-tabs">
+            <a class="card-tab active"><span class="card-tab active"></span>Fireship — 10 CSS tricks you didn't know</a>
+            <a class="card-tab">Theo — Why we moved to Turbopack</a>
+          </div>
+        </div>
+
+        <!-- Card 6: Notion -->
+        <div class="card anim-6" id="card-notion">
+          <div class="card-header">
+            <div class="card-domain">
+              <div class="card-favicon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L18.12 2.043c-.42-.327-.98-.56-1.634-.466L3.476 2.77c-.467.047-.56.28-.374.466l1.357.972zm.793 3.077v13.88c0 .747.373 1.027 1.214.98l14.523-.84c.84-.046.933-.56.933-1.166V6.324c0-.606-.233-.933-.746-.886l-15.177.886c-.56.047-.747.327-.747.96zm14.337.42c.093.42 0 .84-.42.886l-.7.14v10.264c-.607.327-1.167.514-1.634.514-.746 0-.933-.234-1.493-.934l-4.577-7.186v6.952l1.447.327s0 .84-1.167.84l-3.22.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.333 9.76c-.093-.42.14-1.026.793-1.073l3.453-.233 4.764 7.279v-6.44l-1.213-.14c-.094-.513.28-.886.746-.933l3.453-.186z"/></svg>
+              </div>
+              <span class="card-domain-name">notion.so</span>
+              <span class="card-tab-count">6 tabs</span>
+            </div>
+            <div class="card-actions">
+              <button class="card-action-btn" title="Save all for later" onclick="saveCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
+              </button>
+              <button class="card-action-btn" title="Close all" onclick="closeCard(this)">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="card-tabs">
+            <a class="card-tab">Sprint Backlog — Week 16</a>
+            <a class="card-tab active"><span class="card-tab active"></span>Design System Tokens</a>
+            <a class="card-tab">Architecture Decision Records</a>
+            <a class="card-tab">Team Wiki — Onboarding</a>
+            <a class="card-tab">Bug Tracker — CarPlay Integration</a>
+            <a class="card-tab">Personal Notes — Ideas</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT: Saved for later -->
+    <div class="sidebar anim-slide">
+      <div class="section-head">
+        <h2>Saved for later</h2>
+        <div class="line"></div>
+        <div class="count">5</div>
+      </div>
+
+      <div class="saved-list">
+        <div class="saved-item" onclick="toggleSaved(this)">
+          <div class="saved-check">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+          </div>
+          <div class="saved-text">MDN — Web Animations API</div>
+          <div class="saved-domain">mdn</div>
+        </div>
+
+        <div class="saved-item" onclick="toggleSaved(this)">
+          <div class="saved-check">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+          </div>
+          <div class="saved-text">Chrome Extension Samples — MV3</div>
+          <div class="saved-domain">github</div>
+        </div>
+
+        <div class="saved-item" onclick="toggleSaved(this)">
+          <div class="saved-check">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+          </div>
+          <div class="saved-text">Linear Algebra Done Right — Chapter 7</div>
+          <div class="saved-domain">springer</div>
+        </div>
+
+        <div class="saved-item" onclick="toggleSaved(this)">
+          <div class="saved-check">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+          </div>
+          <div class="saved-text">Vercel AI SDK — Streaming Patterns</div>
+          <div class="saved-domain">vercel</div>
+        </div>
+
+        <div class="saved-item" onclick="toggleSaved(this)">
+          <div class="saved-check">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+          </div>
+          <div class="saved-text">Amazon — USB-C Hub for MacBook</div>
+          <div class="saved-domain">amazon</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <footer class="anim-6">
+    <div class="footer-stat">
+      <div class="num">23</div>
+      <div class="label">Open tabs</div>
+    </div>
+    <div class="footer-meta">
+      <a href="#">TabDash</a> by 王哲
+    </div>
+  </footer>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+  <span id="toastText"></span>
+</div>
+
+<script>
+/* ── Clock ── */
+function updateClock() {
+  const now = new Date();
+  document.getElementById('hours').textContent = String(now.getHours()).padStart(2, '0');
+  document.getElementById('minutes').textContent = String(now.getMinutes()).padStart(2, '0');
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+/* ── Toast ── */
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastText').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+/* ── Close card (animate out) ── */
+function closeCard(btn) {
+  const card = btn.closest('.card');
+  card.classList.add('closing');
+  const tabCount = card.querySelectorAll('.card-tab').length;
+  showToast(`Closed ${tabCount} tabs`);
+  setTimeout(() => card.remove(), 500);
+  updateTabCount(-tabCount);
+}
+
+/* ── Save card to later ── */
+function saveCard(btn) {
+  const card = btn.closest('.card');
+  const domainName = card.querySelector('.card-domain-name').textContent;
+  const tabCount = card.querySelectorAll('.card-tab').length;
+  card.classList.add('closing');
+  showToast(`Saved ${tabCount} ${domainName} tabs for later`);
+
+  // Add items to sidebar
+  const savedList = document.querySelector('.saved-list');
+  const tabs = card.querySelectorAll('.card-tab');
+  tabs.forEach((tab, i) => {
+    setTimeout(() => {
+      const item = document.createElement('div');
+      item.className = 'saved-item';
+      item.setAttribute('onclick', 'toggleSaved(this)');
+      item.style.animation = `fade-up 0.4s var(--ease) both`;
+      item.innerHTML = `
+        <div class="saved-check">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+        </div>
+        <div class="saved-text">${tab.textContent.trim()}</div>
+        <div class="saved-domain">${domainName.split('.')[0]}</div>
+      `;
+      savedList.appendChild(item);
+    }, 200 + i * 80);
+  });
+
+  setTimeout(() => card.remove(), 500);
+  updateTabCount(-tabCount);
+}
+
+/* ── Toggle saved item ── */
+function toggleSaved(item) {
+  if (item.classList.contains('checked')) {
+    item.classList.add('completing');
+    showToast('Completed');
+    setTimeout(() => item.remove(), 600);
+  } else {
+    item.classList.add('checked');
+  }
+}
+
+/* ── Close banner ── */
+function closeBanner() {
+  const banner = document.getElementById('banner');
+  banner.style.transition = 'all 0.4s var(--ease)';
+  banner.style.opacity = '0';
+  banner.style.transform = 'translateY(-10px)';
+  showToast('Closed 2 extra TabDash tabs');
+  setTimeout(() => banner.style.display = 'none', 400);
+}
+
+/* ── Update tab count ── */
+function updateTabCount(delta) {
+  const numEl = document.querySelector('.footer-stat .num');
+  const countEl = document.querySelector('.section-head .count');
+  let count = parseInt(numEl.textContent) + delta;
+  if (count < 0) count = 0;
+  numEl.textContent = count;
+  countEl.textContent = count + ' tabs';
+}
+
+/* ── Add close buttons to individual tabs ── */
+document.querySelectorAll('.card-tab').forEach(tab => {
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'tab-close';
+  closeBtn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>';
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    tab.classList.add('closing');
+    setTimeout(() => {
+      tab.remove();
+      // Update card tab count
+      const card = e.target.closest('.card');
+      if (card) {
+        const remaining = card.querySelectorAll('.card-tab').length;
+        const countEl = card.querySelector('.card-tab-count');
+        if (countEl) countEl.textContent = remaining + ' tabs';
+        if (remaining === 0) {
+          card.classList.add('closing');
+          setTimeout(() => card.remove(), 500);
+        }
+      }
+    }, 350);
+    updateTabCount(-1);
+    showToast('Tab closed');
+  });
+  tab.appendChild(closeBtn);
+});
+</script>
+</body>
+</html>
