@@ -1102,6 +1102,30 @@ function renderQuickAccessGrid(data) {
  *
  * Returns: [{ title, url, visitCount, lastVisitTime }]
  */
+/**
+ * normalizeQaUrl(url)
+ *
+ * Normalizes a URL for dedup in Quick Access: strips trailing slash,
+ * tracking params, hash, and lowercases the hostname.
+ * Two URLs that point to the same page should produce the same key.
+ */
+function normalizeQaUrl(url) {
+  try {
+    const u = new URL(url);
+    // Remove common tracking / noise parameters
+    const junkParams = [
+      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+      'fbclid', 'gclid', 'ref', 'source', 'mc_cid', 'mc_eid',
+      '_ga', 'spm', 'from', 'share_source', 'vd_source',
+    ];
+    for (const p of junkParams) u.searchParams.delete(p);
+    u.hash = '';
+    let path = u.pathname;
+    if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+    return u.origin.toLowerCase() + path + u.search;
+  } catch { return url; }
+}
+
 async function buildQuickAccessFromHistory() {
   // ---- Hostnames to skip ----
   const defaultBlacklist = [
@@ -1133,12 +1157,13 @@ async function buildQuickAccessFromHistory() {
     } catch { return false; }
   });
 
-  // ---- Deduplicate by exact URL, clean titles ----
-  const seenUrls = new Set();
+  // ---- Deduplicate by normalized URL, clean titles ----
+  const seenKeys = new Set();
   const results = [];
   for (const item of candidates) {
-    if (seenUrls.has(item.url)) continue;
-    seenUrls.add(item.url);
+    const key = normalizeQaUrl(item.url);
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
 
     let hostname = '';
     try { hostname = new URL(item.url).hostname; } catch { continue; }
@@ -1151,6 +1176,7 @@ async function buildQuickAccessFromHistory() {
     results.push({
       title,
       url: item.url,
+      normalizedUrl: key,
       visitCount: item.weeklyCount,
       lastVisitTime: item.lastVisitTime || 0,
     });
@@ -1177,7 +1203,11 @@ async function renderQuickAccess() {
 
   try {
     const allPages = await buildQuickAccessFromHistory();
-    const filtered = allPages.filter(l => !dismissed.has(l.url)).slice(0, 10);
+    // Also normalize dismissed URLs so dismissing one variant covers all
+    const dismissedKeys = new Set([...dismissed].map(u => normalizeQaUrl(u)));
+    const filtered = allPages.filter(l => {
+      return !dismissed.has(l.url) && !dismissedKeys.has(l.normalizedUrl || normalizeQaUrl(l.url));
+    }).slice(0, 10);
     if (filtered.length === 0) { section.style.display = 'none'; return; }
 
     section.style.display = 'block';
@@ -1361,6 +1391,63 @@ document.addEventListener('click', async (e) => {
 
   const action = actionEl.dataset.action;
 
+  // ---- Organize bookmarks into folders ----
+  if (action === 'organize-bookmarks') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Organize all bookmarks into folders?\n\nThis will categorize all bookmarks and move them into "Auto-Organized" in your Bookmarks Bar. You can restore them afterwards.')) return;
+
+    actionEl.disabled = true;
+    actionEl.style.opacity = '0.5';
+
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'organizeBookmarks' });
+      if (result && result.moved > 0) {
+        const folderCount = Object.keys(result.categories).length;
+        showToast(`Organized ${result.moved} bookmark${result.moved !== 1 ? 's' : ''} into ${folderCount} folder${folderCount !== 1 ? 's' : ''}`);
+        // Show restore button
+        updateRestoreButton();
+      } else {
+        showToast('No loose bookmarks to organize');
+      }
+    } catch (err) {
+      console.error('[tabdash] Organize bookmarks failed:', err);
+      showToast('Failed to organize bookmarks');
+    }
+
+    actionEl.disabled = false;
+    actionEl.style.opacity = '';
+    return;
+  }
+
+  // ---- Restore bookmarks to pre-organize state ----
+  if (action === 'restore-bookmarks') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Restore bookmarks to their original locations?\n\nThis will undo the last auto-organize and move all bookmarks back.')) return;
+
+    actionEl.disabled = true;
+    actionEl.style.opacity = '0.5';
+
+    try {
+      const result = await chrome.runtime.sendMessage({ action: 'restoreBookmarks' });
+      if (result && result.restored > 0) {
+        showToast(`Restored ${result.restored} bookmark${result.restored !== 1 ? 's' : ''} to original locations`);
+      } else {
+        showToast('Nothing to restore');
+      }
+    } catch (err) {
+      console.error('[tabdash] Restore bookmarks failed:', err);
+      showToast('Failed to restore bookmarks');
+    }
+
+    actionEl.disabled = false;
+    actionEl.style.opacity = '';
+    // Hide restore button after restoring
+    updateRestoreButton();
+    return;
+  }
+
   // ---- Close duplicate TabDash tabs ----
   if (action === 'close-tabout-dupes') {
     await closeTabOutDupes();
@@ -1409,10 +1496,19 @@ document.addEventListener('click', async (e) => {
       const dismissedSet = new Set((await chrome.storage.local.get('qaDismissed')).qaDismissed || []);
       const allPages = await buildQuickAccessFromHistory();
       const eligible = allPages.filter(l => !dismissedSet.has(l.url));
-      const currentCount = grid.querySelectorAll('.qa-card').length;
 
-      if (currentCount < 10 && eligible.length > currentCount) {
-        const replacement = eligible[currentCount]; // next card after current visible ones
+      // Collect normalized URLs of cards still visible in the grid
+      const visibleCards = grid.querySelectorAll('.qa-card');
+      const currentCount = visibleCards.length;
+      const visibleKeys = new Set();
+      for (const card of visibleCards) {
+        const cardUrl = card.dataset.qaUrl;
+        if (cardUrl) visibleKeys.add(normalizeQaUrl(cardUrl));
+      }
+
+      if (currentCount < 10) {
+        // Pick the first eligible page not already visible
+        const replacement = eligible.find(l => !visibleKeys.has(l.normalizedUrl || normalizeQaUrl(l.url)));
         if (replacement) {
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = renderSingleQaCard(replacement);
@@ -1700,6 +1796,171 @@ document.addEventListener('input', async (e) => {
 
 
 /* ----------------------------------------------------------------
+   SEARCH BAR — Quick search for history & bookmarks
+   ---------------------------------------------------------------- */
+
+/**
+ * initSearchBar()
+ *
+ * Wires up the search input with debounced querying, keyboard navigation,
+ * result rendering, and click-outside dismissal.
+ */
+function initSearchBar() {
+  const input      = document.getElementById('searchInput');
+  const resultsEl  = document.getElementById('searchResults');
+  const shortcut   = document.querySelector('.search-shortcut');
+  if (!input || !resultsEl) return;
+
+  // Create backdrop overlay — must be inside .container to share its stacking context
+  const backdrop = document.createElement('div');
+  backdrop.className = 'search-backdrop';
+  const container = document.querySelector('.container');
+  (container || document.body).insertBefore(backdrop, container ? container.firstChild : null);
+
+  backdrop.addEventListener('click', () => {
+    hideResults();
+    input.blur();
+  });
+
+  let debounceTimer = null;
+  let activeIndex   = -1;
+  let currentResults = [];
+
+  // Debounced search on input
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const query = input.value.trim();
+
+    if (!query) {
+      hideResults();
+      return;
+    }
+
+    debounceTimer = setTimeout(() => {
+      chrome.runtime.sendMessage({ action: 'search', query }, (results) => {
+        if (chrome.runtime.lastError) { hideResults(); return; }
+        currentResults = results || [];
+        activeIndex = -1;
+        renderResults();
+      });
+    }, 200);
+  });
+
+  // Keyboard navigation
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      hideResults();
+      input.blur();
+      return;
+    }
+
+    if (currentResults.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, currentResults.length - 1);
+      updateActiveItem();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, -1);
+      updateActiveItem();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = activeIndex >= 0 ? activeIndex : 0;
+      const link = resultsEl.querySelector(`.search-result-item[data-index="${idx}"]`);
+      if (link) link.click();
+    }
+  });
+
+  // Hide shortcut hint when focused
+  input.addEventListener('focus', () => {
+    if (shortcut) shortcut.style.display = 'none';
+  });
+
+  input.addEventListener('blur', () => {
+    if (shortcut && !input.value) shortcut.style.display = '';
+  });
+
+  // Click outside closes results
+  document.addEventListener('click', (e) => {
+    const searchBar = document.getElementById('searchBar');
+    if (searchBar && !searchBar.contains(e.target)) {
+      hideResults();
+    }
+  });
+
+  // Global "/" shortcut to focus search
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && !isInputFocused()) {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+
+  function isInputFocused() {
+    const active = document.activeElement;
+    return active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+  }
+
+  function hideResults() {
+    resultsEl.style.display = 'none';
+    backdrop.classList.remove('visible');
+    currentResults = [];
+    activeIndex = -1;
+  }
+
+  function renderResults() {
+    if (currentResults.length === 0) {
+      resultsEl.innerHTML = '<div class="search-no-results">No matches found</div>';
+      resultsEl.style.display = 'block';
+      backdrop.classList.add('visible');
+      return;
+    }
+
+    resultsEl.innerHTML = currentResults.map((r, i) => {
+      let domain = '';
+      try { domain = new URL(r.url).hostname.replace(/^www\./, ''); } catch {}
+      const faviconUrl = domain
+        ? `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(r.url)}&size=16`
+        : '';
+
+      const safeDomain = domain.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const title = stripTitleNoise(r.title || '') || domain || r.url;
+      const safeUrl = (r.url || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+      const safeTitle = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      const sourceBadge = r.source === 'both' ? '<span class="search-source-badge both">both</span>'
+        : r.source === 'bookmark' ? '<span class="search-source-badge bookmark">bookmark</span>'
+        : '<span class="search-source-badge history">history</span>';
+
+      return `<a href="${safeUrl}" class="search-result-item${i === activeIndex ? ' active' : ''}" data-index="${i}">
+        <div class="search-result-favicon">
+          ${faviconUrl ? `<img src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
+        </div>
+        <div class="search-result-info">
+          <div class="search-result-title">${safeTitle}</div>
+          <div class="search-result-meta">
+            <span class="search-result-domain">${safeDomain}</span>
+            ${sourceBadge}
+          </div>
+        </div>
+      </a>`;
+    }).join('');
+
+    resultsEl.style.display = 'block';
+    backdrop.classList.add('visible');
+  }
+
+  function updateActiveItem() {
+    const items = resultsEl.querySelectorAll('.search-result-item');
+    items.forEach((el, i) => {
+      el.classList.toggle('active', i === activeIndex);
+    });
+  }
+}
+
+
+/* ----------------------------------------------------------------
    THEME TOGGLE — Light / Dark mode
    ---------------------------------------------------------------- */
 
@@ -1746,6 +2007,37 @@ document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
 
 
 /* ----------------------------------------------------------------
+   BOOKMARK RESTORE — show/hide the restore button based on snapshot
+   ---------------------------------------------------------------- */
+
+/**
+ * updateRestoreButton()
+ *
+ * Checks if a bookmark organize snapshot exists. If so, shows the
+ * "Restore" button with a tooltip showing when the snapshot was taken.
+ */
+async function updateRestoreButton() {
+  const btn = document.getElementById('restoreBookmarksBtn');
+  if (!btn) return;
+
+  try {
+    const result = await chrome.runtime.sendMessage({ action: 'hasBookmarkSnapshot' });
+    if (result && result.has) {
+      const ago = result.time ? timeAgo(new Date(result.time).toISOString()) : '';
+      btn.title = `Restore ${result.count} bookmarks to original locations` + (ago ? ` (organized ${ago})` : '');
+      btn.style.display = '';
+    } else {
+      btn.style.display = 'none';
+    }
+  } catch {
+    btn.style.display = 'none';
+  }
+}
+
+
+/* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
 renderDashboard();
+initSearchBar();
+updateRestoreButton();
