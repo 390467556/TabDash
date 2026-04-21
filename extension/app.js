@@ -1072,7 +1072,6 @@ async function renderDeferredColumn() {
   const body           = document.getElementById('deferredBody');
 
   if (!column) return;
-  const dashCols = document.getElementById('dashboardColumns');
 
   try {
     const { active, archived } = await getSavedTabs();
@@ -1081,13 +1080,10 @@ async function renderDeferredColumn() {
     // Hide everything if nothing to show
     if (total === 0) {
       column.style.display = 'none';
-      if (dashCols) dashCols.classList.add('single-column');
       return;
     }
 
     column.style.display = 'block';
-    // Always single-column layout — deferred column sits below, not beside
-    if (dashCols) dashCols.classList.add('single-column');
 
     // Update toggle bar count
     if (toggleCount) {
@@ -1118,7 +1114,6 @@ async function renderDeferredColumn() {
   } catch (err) {
     console.warn('[tabdash] Could not load saved tabs:', err);
     column.style.display = 'none';
-    if (dashCols) dashCols.classList.add('single-column');
   }
 }
 
@@ -1377,7 +1372,7 @@ async function renderQuickAccess() {
     const dismissedKeys = new Set([...dismissed].map(u => normalizeQaUrl(u)));
     const filtered = allPages.filter(l => {
       return !dismissed.has(l.url) && !dismissedKeys.has(l.normalizedUrl || normalizeQaUrl(l.url));
-    }).slice(0, 10);
+    }).slice(0, 8);
     if (filtered.length === 0) { section.style.display = 'none'; return; }
 
     section.style.display = 'block';
@@ -1731,7 +1726,7 @@ document.addEventListener('click', async (e) => {
         if (cardUrl) visibleKeys.add(normalizeQaUrl(cardUrl));
       }
 
-      if (currentCount < 10) {
+      if (currentCount < 8) {
         // Pick the first eligible page not already visible
         const replacement = eligible.find(l => !visibleKeys.has(l.normalizedUrl || normalizeQaUrl(l.url)));
         if (replacement) {
