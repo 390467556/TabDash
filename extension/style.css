@@ -37,6 +37,8 @@
   --sage-subtle:      rgba(197, 197, 197, 0.06);
   --rose:             #e07070;
   --rose-subtle:      rgba(224, 112, 112, 0.08);
+  --amber:            #b8892e;
+  --amber-subtle:     rgba(184, 137, 46, 0.08);
 
   /* Geometry */
   --radius:           12px;
@@ -995,6 +997,27 @@ header {
   border-color: var(--silver);
 }
 
+/* Stale tab cleanup banner — amber accent */
+.stale-cleanup-banner {
+  animation: revealUp 0.8s var(--ease-luxury) 0.18s both;
+}
+
+.stale-icon {
+  background: rgba(184, 137, 46, 0.1);
+  color: var(--amber);
+}
+
+.stale-cleanup-btn {
+  border-color: rgba(184, 137, 46, 0.25);
+  color: var(--amber);
+}
+
+.stale-cleanup-btn:hover {
+  background: rgba(184, 137, 46, 0.1);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
 
 /* ================================================================
    NUDGE BANNER
@@ -1489,14 +1512,68 @@ footer {
    ================================================================ */
 .deferred-column {
   width: 100%;
-  position: sticky;
-  top: 40px;
-  max-height: calc(100vh - 96px);
+}
+
+/* Toggle bar — always visible when items exist */
+.deferred-toggle-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 18px;
+  background: var(--black-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-out);
+}
+
+.deferred-toggle-bar:hover {
+  border-color: var(--border-hover);
+  background: var(--black-lighter);
+}
+
+.deferred-toggle-chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s var(--ease-out);
+  flex-shrink: 0;
+}
+
+.deferred-toggle-bar.open .deferred-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+.deferred-toggle-count {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin-left: auto;
+}
+
+/* Collapsible body */
+.deferred-body {
+  margin-top: 12px;
+  max-height: 60vh;
   overflow-y: auto;
 }
 
-@media (max-width: 900px) {
-  .deferred-column { position: static; }
+.deferred-body::-webkit-scrollbar { width: 3px; }
+.deferred-body::-webkit-scrollbar-track { background: transparent; }
+.deferred-body::-webkit-scrollbar-thumb { background: rgba(197, 197, 197, 0.08); border-radius: 1px; }
+
+/* Expiry label */
+.deferred-expiry {
+  color: var(--text-muted);
+}
+
+.deferred-expiry-urgent {
+  color: var(--amber);
 }
 
 /* Checklist items */
@@ -1841,9 +1918,7 @@ footer {
 ::-webkit-scrollbar-thumb { background: rgba(197, 197, 197, 0.15); border-radius: 1px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(197, 197, 197, 0.3); }
 
-.deferred-column::-webkit-scrollbar { width: 3px; }
-.deferred-column::-webkit-scrollbar-track { background: transparent; }
-.deferred-column::-webkit-scrollbar-thumb { background: rgba(197, 197, 197, 0.08); border-radius: 1px; }
+/* scrollbar moved to .deferred-body */
 
 
 /* ================================================================
@@ -1954,6 +2029,22 @@ footer {
   display: none;
 }
 
+/* Stale cleanup — light mode amber */
+[data-theme="light"] .stale-icon {
+  background: rgba(184, 137, 46, 0.08);
+  color: #9a7320;
+}
+
+[data-theme="light"] .stale-cleanup-btn {
+  border-color: rgba(184, 137, 46, 0.2);
+  color: #9a7320;
+}
+
+[data-theme="light"] .stale-cleanup-btn:hover {
+  background: rgba(184, 137, 46, 0.08);
+  border-color: rgba(184, 137, 46, 0.4);
+}
+
 /* Header border lighter */
 [data-theme="light"] header {
   border-bottom-color: rgba(0, 0, 0, 0.06);
@@ -1998,6 +2089,21 @@ footer {
 [data-theme="light"] .deferred-checkbox:checked {
   background: #007aff;
   border-color: #007aff;
+}
+
+[data-theme="light"] .deferred-toggle-bar {
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .deferred-toggle-bar:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .deferred-expiry-urgent {
+  color: #9a7320;
 }
 
 /* Selection */

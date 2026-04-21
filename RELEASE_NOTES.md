@@ -1,3 +1,28 @@
+# TabDash v1.2.0 Release Notes
+
+## New Features
+
+### Stale Tab Cleanup
+- One-click cleanup of tabs you haven't viewed in a while
+- Dynamic threshold based on open tab count — the more tabs you have, the shorter the threshold:
+  - ≤10 tabs: no cleanup needed
+  - 11–20: 24 hours
+  - 21–35: 12 hours
+  - 36–50: 4 hours
+  - 51+: 2 hours
+- Amber banner appears automatically when stale tabs are detected
+- Confirm dialog shows every tab that will be closed, with last-viewed time
+- Protected tabs (pinned, audible, active, TabDash) are never closed
+- Stale tabs are automatically saved to "Saved for later" before closing
+
+### Saved for Later — 24h Auto-Expiry
+- Saved items now auto-expire after 24 hours to keep the list clean
+- Each item shows remaining time (e.g. "23h15m left"), amber warning when < 1 hour
+- Panel is now collapsed by default — click "Saved for later" toggle bar to expand
+- No longer occupies a full column; sits below the open tabs section
+
+---
+
 # TabDash v1.1.0 Release Notes
 
 ## New Features

@@ -40,11 +40,14 @@ async function fetchOpenTabs() {
 
     const tabs = await chrome.tabs.query({});
     openTabs = tabs.map(t => ({
-      id:       t.id,
-      url:      t.url,
-      title:    t.title,
-      windowId: t.windowId,
-      active:   t.active,
+      id:           t.id,
+      url:          t.url,
+      title:        t.title,
+      windowId:     t.windowId,
+      active:       t.active,
+      pinned:       t.pinned,
+      audible:      t.audible,
+      lastAccessed: t.lastAccessed || 0,
       // Flag TabDash's own pages so we can detect duplicate new tabs
       isTabOut: t.url === newtabUrl || t.url === 'chrome://newtab/',
     }));
@@ -197,6 +200,104 @@ async function closeTabOutDupes() {
   await fetchOpenTabs();
 }
 
+/**
+ * getStaleThresholdMs(tabCount)
+ *
+ * Returns the staleness threshold in milliseconds based on how many
+ * real tabs are open.  More tabs → shorter threshold, but never
+ * unreasonably short — the minimum is 2 hours.
+ *
+ *   ≤10 tabs → skip (no cleanup needed)
+ *   11–20    → 24 hours
+ *   21–35    → 12 hours
+ *   36–50    → 4 hours
+ *   51+      → 2 hours
+ */
+function getStaleThresholdMs(tabCount) {
+  if (tabCount <= 10) return Infinity; // don't bother
+  if (tabCount <= 20) return 24 * 60 * 60 * 1000;
+  if (tabCount <= 35) return 12 * 60 * 60 * 1000;
+  if (tabCount <= 50) return 4 * 60 * 60 * 1000;
+  return 2 * 60 * 60 * 1000;
+}
+
+/**
+ * findStaleTabs()
+ *
+ * Returns an array of stale tab objects sorted oldest-first.
+ * Protects: active tab, pinned tabs, audible tabs, TabDash pages,
+ * and chrome:// / extension pages.
+ */
+function findStaleTabs() {
+  const now = Date.now();
+  const realTabs = openTabs.filter(t => {
+    const url = t.url || '';
+    return !url.startsWith('chrome://') &&
+           !url.startsWith('chrome-extension://') &&
+           !url.startsWith('about:') &&
+           !url.startsWith('edge://') &&
+           !url.startsWith('brave://');
+  });
+
+  const threshold = getStaleThresholdMs(realTabs.length);
+
+  return realTabs
+    .filter(t => {
+      if (t.active)   return false; // current tab
+      if (t.pinned)   return false; // pinned
+      if (t.audible)  return false; // playing audio/video
+      if (t.isTabOut)  return false; // TabDash itself
+      if (!t.lastAccessed) return false; // no data
+      return (now - t.lastAccessed) > threshold;
+    })
+    .sort((a, b) => a.lastAccessed - b.lastAccessed); // oldest first
+}
+
+/**
+ * closeStaleTabs()
+ *
+ * Saves stale tabs to "Saved for Later", then closes them.
+ * Returns { closed, thresholdMin }.
+ */
+async function closeStaleTabs() {
+  const stale = findStaleTabs();
+  if (stale.length === 0) return { closed: 0, thresholdMin: 0 };
+
+  const realTabs = openTabs.filter(t => {
+    const url = t.url || '';
+    return !url.startsWith('chrome://') &&
+           !url.startsWith('chrome-extension://') &&
+           !url.startsWith('about:');
+  });
+  const thresholdMs = getStaleThresholdMs(realTabs.length);
+  const thresholdMin = Math.round(thresholdMs / 60000);
+
+  // Save each stale tab to "Saved for Later" before closing
+  for (const tab of stale) {
+    await saveTabForLater({ url: tab.url, title: tab.title });
+  }
+
+  // Close all stale tabs
+  const ids = stale.map(t => t.id);
+  await chrome.tabs.remove(ids);
+  await fetchOpenTabs();
+
+  return { closed: stale.length, thresholdMin };
+}
+
+/**
+ * formatStaleAge(lastAccessed)
+ *
+ * Returns a human-readable string like "2h ago" or "45m ago".
+ */
+function formatStaleAge(lastAccessed) {
+  const mins = Math.round((Date.now() - lastAccessed) / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem > 0 ? `${hrs}h${rem}m ago` : `${hrs}h ago`;
+}
+
 
 /* ----------------------------------------------------------------
    SAVED FOR LATER — chrome.storage.local
@@ -242,15 +343,30 @@ async function saveTabForLater(tab) {
  * getSavedTabs()
  *
  * Returns all saved tabs from chrome.storage.local.
- * Filters out dismissed items (those are gone for good).
- * Splits into active (not completed) and archived (completed).
+ * - Purges items older than 24 hours automatically
+ * - Filters out dismissed items
+ * - Splits into active (not completed) and archived (completed)
  */
 async function getSavedTabs() {
   const { deferred = [] } = await chrome.storage.local.get('deferred');
-  const visible = deferred.filter(t => !t.dismissed);
+  const now = Date.now();
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+  // Auto-purge items older than 24h
+  const kept = deferred.filter(t => {
+    if (t.dismissed) return false;
+    const savedTime = new Date(t.savedAt).getTime();
+    return (now - savedTime) < TWENTY_FOUR_HOURS;
+  });
+
+  // Persist if anything was purged
+  if (kept.length !== deferred.filter(t => !t.dismissed).length) {
+    await chrome.storage.local.set({ deferred: kept });
+  }
+
   return {
-    active:   visible.filter(t => !t.completed),
-    archived: visible.filter(t => t.completed),
+    active:   kept.filter(t => !t.completed),
+    archived: kept.filter(t => t.completed),
   };
 }
 
@@ -752,6 +868,41 @@ function checkTabOutDupes() {
   }
 }
 
+/**
+ * checkStaleTabs()
+ *
+ * Counts stale (long-untouched) tabs. If any exist, shows a banner
+ * with the count and threshold.
+ */
+function checkStaleTabs() {
+  const banner     = document.getElementById('staleTabBanner');
+  const countEl    = document.getElementById('staleTabCount');
+  const threshEl   = document.getElementById('staleThreshold');
+  if (!banner) return;
+
+  const stale = findStaleTabs();
+  if (stale.length === 0) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  const realTabs = openTabs.filter(t => {
+    const url = t.url || '';
+    return !url.startsWith('chrome://') &&
+           !url.startsWith('chrome-extension://') &&
+           !url.startsWith('about:');
+  });
+  const thresholdMs  = getStaleThresholdMs(realTabs.length);
+  const thresholdMin = Math.round(thresholdMs / 60000);
+  const label = thresholdMin >= 60
+    ? `${Math.round(thresholdMin / 60)}h`
+    : `${thresholdMin}m`;
+
+  if (countEl)   countEl.textContent = stale.length;
+  if (threshEl)  threshEl.textContent = label;
+  banner.style.display = 'flex';
+}
+
 
 /* ----------------------------------------------------------------
    OVERFLOW CHIPS ("+N more" expand button in domain cards)
@@ -916,26 +1067,36 @@ async function renderDeferredColumn() {
   const archiveEl      = document.getElementById('deferredArchive');
   const archiveCountEl = document.getElementById('archiveCount');
   const archiveList    = document.getElementById('archiveList');
+  const toggleBar      = document.getElementById('deferredToggleBar');
+  const toggleCount    = document.getElementById('deferredToggleCount');
+  const body           = document.getElementById('deferredBody');
 
   if (!column) return;
   const dashCols = document.getElementById('dashboardColumns');
 
   try {
     const { active, archived } = await getSavedTabs();
+    const total = active.length + archived.length;
 
-    // Hide the entire column if there's nothing to show
-    if (active.length === 0 && archived.length === 0) {
+    // Hide everything if nothing to show
+    if (total === 0) {
       column.style.display = 'none';
       if (dashCols) dashCols.classList.add('single-column');
       return;
     }
 
     column.style.display = 'block';
-    if (dashCols) dashCols.classList.remove('single-column');
+    // Always single-column layout — deferred column sits below, not beside
+    if (dashCols) dashCols.classList.add('single-column');
+
+    // Update toggle bar count
+    if (toggleCount) {
+      toggleCount.textContent = `${active.length} saved`;
+    }
 
     // Render active checklist items
     if (active.length > 0) {
-      countEl.textContent = `${active.length} item${active.length !== 1 ? 's' : ''}`;
+      countEl.textContent = `${active.length} item${active.length !== 1 ? 's' : ''} · auto-expires in 24h`;
       list.innerHTML = active.map(item => renderDeferredItem(item)).join('');
       list.style.display = 'block';
       empty.style.display = 'none';
@@ -971,7 +1132,16 @@ function renderDeferredItem(item) {
   let domain = '';
   try { domain = new URL(item.url).hostname.replace(/^www\./, ''); } catch {}
   const faviconUrl = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(item.url)}&size=16`;
-  const ago = timeAgo(item.savedAt);
+
+  // Show remaining time until 24h expiry
+  const savedTime = new Date(item.savedAt).getTime();
+  const remainMs = Math.max(0, (savedTime + 24 * 60 * 60 * 1000) - Date.now());
+  const remainMin = Math.round(remainMs / 60000);
+  let expiryLabel;
+  if (remainMin <= 0) expiryLabel = 'expiring';
+  else if (remainMin < 60) expiryLabel = `${remainMin}m left`;
+  else expiryLabel = `${Math.floor(remainMin / 60)}h${remainMin % 60 > 0 ? Math.round(remainMin % 60) + 'm' : ''} left`;
+  const urgentClass = remainMin < 60 ? ' deferred-expiry-urgent' : '';
 
   return `
     <div class="deferred-item" data-deferred-id="${item.id}">
@@ -982,7 +1152,7 @@ function renderDeferredItem(item) {
         </a>
         <div class="deferred-meta">
           <span>${domain}</span>
-          <span>${ago}</span>
+          <span class="deferred-expiry${urgentClass}">${expiryLabel}</span>
         </div>
       </div>
       <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Dismiss">
@@ -1367,6 +1537,9 @@ async function renderStaticDashboard() {
   // --- Check for duplicate TabDash tabs ---
   checkTabOutDupes();
 
+  // --- Check for stale tabs ---
+  checkStaleTabs();
+
   // --- Render "Saved for Later" column ---
   await renderDeferredColumn();
 }
@@ -1459,6 +1632,58 @@ document.addEventListener('click', async (e) => {
       setTimeout(() => { banner.style.display = 'none'; banner.style.opacity = '1'; }, 400);
     }
     showToast('Closed extra TabDash tabs');
+    return;
+  }
+
+  // ---- Clean up stale tabs ----
+  if (action === 'close-stale-tabs') {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const stale = findStaleTabs();
+    if (stale.length === 0) {
+      showToast('No stale tabs to clean up');
+      return;
+    }
+
+    // Build confirm message: count + first few tab titles
+    const realTabs = openTabs.filter(t => {
+      const url = t.url || '';
+      return !url.startsWith('chrome://') && !url.startsWith('chrome-extension://') && !url.startsWith('about:');
+    });
+    const thresholdMs  = getStaleThresholdMs(realTabs.length);
+    const thresholdMin = Math.round(thresholdMs / 60000);
+    const label = thresholdMin >= 60 ? `${Math.round(thresholdMin / 60)} hour(s)` : `${thresholdMin} minutes`;
+
+    const preview = stale.map(t => {
+      const name = (t.title || t.url || '').slice(0, 60);
+      return `  - ${name} (${formatStaleAge(t.lastAccessed)})`;
+    }).join('\n');
+
+    const msg = `Close ${stale.length} tab${stale.length !== 1 ? 's' : ''} not viewed in over ${label}?\n\nThey will be saved to "Saved for later" first.\n\n${preview}`;
+
+    if (!confirm(msg)) return;
+
+    actionEl.disabled = true;
+    actionEl.style.opacity = '0.5';
+
+    const result = await closeStaleTabs();
+    playCloseSound();
+
+    const banner = document.getElementById('staleTabBanner');
+    if (banner) {
+      banner.style.transition = 'opacity 0.4s';
+      banner.style.opacity = '0';
+      setTimeout(() => { banner.style.display = 'none'; banner.style.opacity = '1'; }, 400);
+    }
+
+    showToast(`Cleaned up ${result.closed} stale tab${result.closed !== 1 ? 's' : ''} → saved for later`);
+
+    actionEl.disabled = false;
+    actionEl.style.opacity = '';
+
+    // Re-render dashboard to reflect closed tabs + new saved-for-later items
+    await renderDashboard();
     return;
   }
 
@@ -1752,15 +1977,26 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// ---- Archive toggle — expand/collapse the archive section ----
+// ---- Deferred toggle — expand/collapse the saved-for-later panel ----
 document.addEventListener('click', (e) => {
-  const toggle = e.target.closest('#archiveToggle');
-  if (!toggle) return;
+  const toggle = e.target.closest('[data-action="toggle-deferred"]');
+  if (toggle) {
+    toggle.classList.toggle('open');
+    const body = document.getElementById('deferredBody');
+    if (body) {
+      body.style.display = body.style.display === 'none' ? 'block' : 'none';
+    }
+    return;
+  }
 
-  toggle.classList.toggle('open');
-  const body = document.getElementById('archiveBody');
-  if (body) {
-    body.style.display = body.style.display === 'none' ? 'block' : 'none';
+  // ---- Archive toggle — expand/collapse the archive section ----
+  const archToggle = e.target.closest('#archiveToggle');
+  if (!archToggle) return;
+
+  archToggle.classList.toggle('open');
+  const archBody = document.getElementById('archiveBody');
+  if (archBody) {
+    archBody.style.display = archBody.style.display === 'none' ? 'block' : 'none';
   }
 });
 
