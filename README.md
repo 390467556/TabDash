@@ -14,7 +14,7 @@ No server. No account. No external API calls. Just a Chrome extension.
 
 - **See all your tabs at a glance** on a clean grid, grouped by domain
 - **Homepages group** pulls Gmail inbox, X home, YouTube, LinkedIn, GitHub homepages into one card
-- **Frequently visited** shows your top 10 most-visited pages from the last 15 days
+- **Frequently visited** shows your top 8 most-visited pages from the last 15 days, with pin support
 - **Search bar** quick-search across browser history & bookmarks with keyboard navigation
 - **Bookmark auto-organizer** one-click categorization of all bookmarks into nested folders
 - **Bookmark restore** snapshot-based undo to revert organized bookmarks to their original locations
@@ -120,11 +120,14 @@ Tabs saved for later (manually or via stale tab cleanup) appear in a collapsible
 
 ### Frequently Visited
 
-The top 10 most-visited pages from the last 15 days appear in a grid at the top. Click any card to open that page.
+The top 8 most-visited pages from the last 15 days appear in a grid at the top. Click any card to open that page.
 
 - Hover over a card and click **x** to dismiss it — a replacement is backfilled automatically
 - Dismissed URLs are remembered across sessions
 - URLs are normalized to prevent the same page from showing up as multiple cards
+- **Pin** a card (pin icon on hover) to lock it in place permanently — pinned cards stay regardless of visit frequency
+- **Unpin** by clicking the pin icon again — the card returns to dynamic frequency-based ranking
+- Pinned cards appear first; remaining slots fill dynamically from history
 
 ### Theme Toggle
 
