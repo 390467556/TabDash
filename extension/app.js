@@ -1199,12 +1199,13 @@ function renderArchiveItem(item) {
  *
  * Returns the HTML string for one Quick Access card.
  */
-function renderSingleQaCard(link) {
+function renderSingleQaCard(link, pinnedUrls = new Set()) {
   let domain = '';
   try { domain = new URL(link.url).hostname.replace(/^www\./, ''); } catch {}
   const favicon = domain ? `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(link.url)}&size=32` : '';
   const safeUrl = (link.url || '').replace(/"/g, '&quot;');
   const safeTitle = (link.title || '').replace(/"/g, '&quot;');
+  const isPinned = link.pinned || pinnedUrls.has(link.url);
 
   const visits = link.visitCount || 0;
   const visitLabel = visits > 0 ? `${visits} visit${visits !== 1 ? 's' : ''}` : '';
@@ -1226,13 +1227,19 @@ function renderSingleQaCard(link) {
   const clockIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="qa-meta-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>`;
 
   const metaParts = [];
+  if (isPinned) metaParts.push(`<span class="qa-meta-item qa-meta-pinned"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="qa-meta-icon"><path d="M16 2c.55 0 1 .45 1 1v3.39l1.55 1.55c.29.29.45.68.45 1.1V12c0 .55-.45 1-1 1h-4v7l-1 1-1-1v-7H8c-.55 0-1-.45-1-1V9.04c0-.42.16-.81.45-1.1L9 6.39V3c0-.55.45-1 1-1h6Z"/></svg>pinned</span>`);
   if (visitLabel) metaParts.push(`<span class="qa-meta-item">${visitIcon}${visitLabel}</span>`);
   if (ago)        metaParts.push(`<span class="qa-meta-item">${clockIcon}${ago}</span>`);
   const metaHtml = metaParts.length > 0
     ? `<div class="qa-card-meta">${metaParts.join('<span class="qa-meta-dot">·</span>')}</div>`
     : '';
 
-  return `<div class="qa-card" data-qa-url="${safeUrl}">
+  const pinTitle = isPinned ? 'Unpin' : 'Pin';
+  const pinIcon = isPinned
+    ? `<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"><path d="M16 2c.55 0 1 .45 1 1v3.39l1.55 1.55c.29.29.45.68.45 1.1V12c0 .55-.45 1-1 1h-4v7l-1 1-1-1v-7H8c-.55 0-1-.45-1-1V9.04c0-.42.16-.81.45-1.1L9 6.39V3c0-.55.45-1 1-1h6Z"/></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16 2v4.39l1.55 1.55c.29.29.45.68.45 1.1V12c0 .55-.45 1-1 1h-4v7l-1 1-1-1v-7H8c-.55 0-1-.45-1-1V9.04c0-.42.16-.81.45-1.1L9 6.39V2"/></svg>`;
+
+  return `<div class="qa-card${isPinned ? ' qa-card-pinned' : ''}" data-qa-url="${safeUrl}">
     <a href="${safeUrl}" class="qa-card-link" title="${safeTitle}">
       <div class="qa-card-icon">
         ${favicon ? `<img src="${favicon}" alt="" class="qa-card-favicon" onerror="this.parentElement.textContent='🌐'">` : '<span>🌐</span>'}
@@ -1243,15 +1250,18 @@ function renderSingleQaCard(link) {
         ${metaHtml}
       </div>
     </a>
+    <button class="qa-card-pin" data-action="pin-qa" data-qa-url="${safeUrl}" title="${pinTitle}">
+      ${pinIcon}
+    </button>
     <button class="qa-card-dismiss" data-action="dismiss-qa" data-qa-url="${safeUrl}" title="Remove">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
     </button>
   </div>`;
 }
 
-function renderQuickAccessGrid(data) {
+function renderQuickAccessGrid(data, pinnedUrls = new Set()) {
   return data.map(cat => {
-    const cards = cat.links.map(link => renderSingleQaCard(link)).join('');
+    const cards = cat.links.map(link => renderSingleQaCard(link, pinnedUrls)).join('');
     return `<div class="quick-access-category">
       <div class="quick-access-label">${cat.category}</div>
       <div class="qa-card-grid">${cards}</div>
@@ -1362,22 +1372,36 @@ async function renderQuickAccess() {
   const grid = document.getElementById('quickAccessGrid');
   if (!section || !grid) return;
 
-  // Load dismissed URLs from storage
-  const { qaDismissed = [] } = await chrome.storage.local.get('qaDismissed');
+  const { qaDismissed = [], qaPinned = [] } = await chrome.storage.local.get(['qaDismissed', 'qaPinned']);
   const dismissed = new Set(qaDismissed);
+  const pinnedUrls = new Set(qaPinned);
 
   try {
     const allPages = await buildQuickAccessFromHistory();
-    // Also normalize dismissed URLs so dismissing one variant covers all
     const dismissedKeys = new Set([...dismissed].map(u => normalizeQaUrl(u)));
-    const filtered = allPages.filter(l => {
-      return !dismissed.has(l.url) && !dismissedKeys.has(l.normalizedUrl || normalizeQaUrl(l.url));
-    }).slice(0, 8);
-    if (filtered.length === 0) { section.style.display = 'none'; return; }
+
+    // Pinned items come first (preserve pin order); show even if not in recent history
+    const pinnedItems = qaPinned.map(url => {
+      const found = allPages.find(p => p.url === url || normalizeQaUrl(p.url) === normalizeQaUrl(url));
+      if (found) return { ...found, pinned: true };
+      let hostname = '';
+      try { hostname = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+      return { title: hostname || url, url, normalizedUrl: normalizeQaUrl(url), visitCount: 0, lastVisitTime: 0, pinned: true };
+    });
+
+    // Dynamic items fill remaining slots
+    const pinnedKeys = new Set(pinnedItems.map(p => normalizeQaUrl(p.url)));
+    const dynamicItems = allPages.filter(l => {
+      if (dismissed.has(l.url) || dismissedKeys.has(l.normalizedUrl || normalizeQaUrl(l.url))) return false;
+      if (pinnedKeys.has(l.normalizedUrl || normalizeQaUrl(l.url))) return false;
+      return true;
+    }).slice(0, 8 - pinnedItems.length);
+
+    const combined = [...pinnedItems, ...dynamicItems];
+    if (combined.length === 0) { section.style.display = 'none'; return; }
 
     section.style.display = 'block';
-    // Wrap in a single group so renderQuickAccessGrid still works
-    grid.innerHTML = renderQuickAccessGrid([{ category: 'Most visited — last 15 days', links: filtered }]);
+    grid.innerHTML = renderQuickAccessGrid([{ category: 'Most visited — last 15 days', links: combined }], pinnedUrls);
   } catch (err) {
     console.warn('[tabdash] Quick Access failed:', err);
     section.style.display = 'none';
@@ -1682,6 +1706,25 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  // ---- Pin/Unpin a Quick Access card ----
+  if (action === 'pin-qa') {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = actionEl.dataset.qaUrl;
+    if (!url) return;
+
+    const { qaPinned = [] } = await chrome.storage.local.get('qaPinned');
+    const idx = qaPinned.indexOf(url);
+    if (idx >= 0) {
+      qaPinned.splice(idx, 1);
+    } else {
+      qaPinned.push(url);
+    }
+    await chrome.storage.local.set({ qaPinned });
+    await renderQuickAccess();
+    return;
+  }
+
   // ---- Dismiss a Quick Access card ----
   if (action === 'dismiss-qa') {
     e.preventDefault();
@@ -1689,12 +1732,14 @@ document.addEventListener('click', async (e) => {
     const url = actionEl.dataset.qaUrl;
     if (!url) return;
 
-    // Persist dismissed URL
-    const { qaDismissed = [] } = await chrome.storage.local.get('qaDismissed');
+    // Persist dismissed URL and remove from pinned if needed
+    const { qaDismissed = [], qaPinned = [] } = await chrome.storage.local.get(['qaDismissed', 'qaPinned']);
     if (!qaDismissed.includes(url)) {
       qaDismissed.push(url);
-      await chrome.storage.local.set({ qaDismissed });
     }
+    const pinIdx = qaPinned.indexOf(url);
+    if (pinIdx >= 0) qaPinned.splice(pinIdx, 1);
+    await chrome.storage.local.set({ qaDismissed, qaPinned });
 
     // Animate card out
     const qaCard = actionEl.closest('.qa-card');
