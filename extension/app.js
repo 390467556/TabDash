@@ -2240,46 +2240,48 @@ function initSearchBar() {
    THEME TOGGLE — Light / Dark mode
    ---------------------------------------------------------------- */
 
-/**
- * initTheme()
- *
- * Loads the saved theme from chrome.storage.local and applies it.
- * Defaults to 'dark' if nothing is saved.
- */
-async function initTheme() {
+// Theme toggle removed — single dark mode with scene switcher only
+
+
+/* ----------------------------------------------------------------
+   BACKGROUND SCENE SWITCHER — cycles through Superwhisper-inspired scenes
+   ---------------------------------------------------------------- */
+const SCENES = ['night', 'dusk', 'day', 'aurora'];
+const SCENE_LABELS = { night: 'Night', dusk: 'Dusk', day: 'Day', aurora: 'Aurora' };
+
+async function initScene() {
   try {
-    const { theme } = await chrome.storage.local.get('theme');
-    if (theme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
+    const { bgScene } = await chrome.storage.local.get('bgScene');
+    if (bgScene && SCENES.includes(bgScene)) {
+      applyScene(bgScene);
     }
   } catch {}
 }
 
-/**
- * toggleTheme()
- *
- * Switches between light and dark mode, persists the choice.
- */
-async function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'light' ? 'dark' : 'light';
-
-  if (next === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
+function applyScene(scene) {
+  if (scene === 'night') {
+    document.documentElement.removeAttribute('data-scene');
+    document.body.removeAttribute('data-scene');
   } else {
-    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.setAttribute('data-scene', scene);
+    document.body.setAttribute('data-scene', scene);
   }
+  const label = document.getElementById('sceneLabel');
+  if (label) label.textContent = SCENE_LABELS[scene] || 'Night';
+}
 
+async function cycleScene() {
+  const current = document.documentElement.getAttribute('data-scene') || 'night';
+  const idx = SCENES.indexOf(current);
+  const next = SCENES[(idx + 1) % SCENES.length];
+  applyScene(next);
   try {
-    await chrome.storage.local.set({ theme: next });
+    await chrome.storage.local.set({ bgScene: next });
   } catch {}
 }
 
-// Apply saved theme immediately (before render to avoid flash)
-initTheme();
-
-// Wire up the toggle button
-document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+initScene();
+document.getElementById('sceneToggle')?.addEventListener('click', cycleScene);
 
 
 /* ----------------------------------------------------------------

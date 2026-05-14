@@ -20,7 +20,7 @@ No server. No account. No external API calls. Just a Chrome extension.
 - **Bookmark restore** snapshot-based undo to revert organized bookmarks to their original locations
 - **Stale tab cleanup** one-click cleanup of long-untouched tabs with dynamic threshold, auto-saved before closing
 - **Save for later** with 24h auto-expiry — collapsed panel, click to expand, items expire automatically
-- **Light / Dark mode** Apple-style frosted glass light theme, industrial dark theme, one-click toggle
+- **4 ambient background scenes** (Night / Dusk / Day / Aurora) — Superwhisper-inspired deep gradients with smooth blend-mode layering, one-click cycle
 - **Masonry layout** cards auto-balance across columns — big cards on one side, small cards stack on the other
 - **Close tabs with style** with swoosh sound + confetti burst
 - **Duplicate detection** flags when you have the same page open twice, with one-click cleanup
@@ -129,9 +129,18 @@ The top 8 most-visited pages from the last 15 days appear in a grid at the top. 
 - **Unpin** by clicking the pin icon again — the card returns to dynamic frequency-based ranking
 - Pinned cards appear first; remaining slots fill dynamically from history
 
-### Theme Toggle
+### Background Scenes
 
-Click the **sun/moon icon** in the top-right corner to switch between dark and light mode. Your preference is saved locally.
+Click the **paintbrush icon** in the top-right corner to cycle through 4 ambient background scenes:
+
+| Scene | Mood |
+|-------|------|
+| Night | Deep black with subtle navy/purple glow (default) |
+| Dusk | Dark indigo with soft purple atmosphere |
+| Day | Deep ocean blue with warm amber undertones |
+| Aurora | Midnight blue with cool steel-blue highlights |
+
+Your preference is saved locally. Scenes transition smoothly with a 1.2s crossfade.
 
 ---
 
@@ -180,7 +189,7 @@ You open a new tab
   -> Click any tab title to jump to it
   -> Close groups you're done with (swoosh + confetti)
   -> Save tabs for later before closing them
-  -> Toggle light/dark mode with the sun/moon button
+  -> Cycle ambient background scenes with the paintbrush button
 ```
 
 Everything runs inside the Chrome extension. No external server, no API calls, no data sent anywhere. Saved tabs are stored in `chrome.storage.local`.
@@ -197,7 +206,7 @@ Everything runs inside the Chrome extension. No external server, no API calls, n
 | Bookmarks | chrome.bookmarks API (organize / restore) |
 | Sound | Web Audio API (synthesized, no files) |
 | Animations | CSS transitions + JS confetti particles |
-| Light theme | Backdrop blur + frosted glass (Apple-style) |
+| Visual style | Glassmorphism + multi-layer gradients + noise texture (Superwhisper-inspired) |
 | Layout | CSS columns masonry + responsive grid |
 
 ---
