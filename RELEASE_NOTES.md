@@ -1,3 +1,15 @@
+# TabDash v1.3.0 Release Notes
+
+## Changes
+
+### Pin to Most Visited
+- The bookmark icon on page chips (in the Open Tabs section) now **pins the URL to the Most Visited grid** instead of saving-for-later and closing the tab
+- Pinned pages appear permanently in the "Frequently visited" section at the top
+- If the URL is already pinned, a toast shows "Already pinned"
+- Tooltip updated from "Save for later" to "Pin to Most Visited"
+
+---
+
 # TabDash v1.2.0 Release Notes
 
 ## New Features

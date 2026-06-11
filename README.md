@@ -126,6 +126,7 @@ The top 8 most-visited pages from the last 15 days appear in a grid at the top. 
 - Dismissed URLs are remembered across sessions
 - URLs are normalized to prevent the same page from showing up as multiple cards
 - **Pin** a card (pin icon on hover) to lock it in place permanently — pinned cards stay regardless of visit frequency
+- **Pin from Open Tabs** — click the bookmark icon on any page chip in the Open Tabs section to pin that URL to Frequently Visited
 - **Unpin** by clicking the pin icon again — the card returns to dynamic frequency-based ranking
 - Pinned cards appear first; remaining slots fill dynamically from history
 
